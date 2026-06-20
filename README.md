@@ -10,6 +10,8 @@
 [![Responses API](https://img.shields.io/badge/OpenAI-Responses-4F46E5?style=for-the-badge)](#api-endpoints)
 [![Kimi](https://img.shields.io/badge/Kimi-K2.6-00A3FF?style=for-the-badge)](#модели)
 
+**Ватермарка:** [t.me/forgetmeai](https://t.me/forgetmeai)
+
 </div>
 
 ---
@@ -362,3 +364,12 @@ openclaw: pending
 - [Архитектура](docs/ARCHITECTURE.md)
 - [Гайд для публичного демо](docs/PUBLIC_DEMO_GUIDE.md)
 - [Отчёт о проверке](docs/VERIFICATION.md)
+
+---
+
+<div align="center">
+
+Сделано для практических экспериментов с AI-агентами<br>
+**[t.me/forgetmeai](https://t.me/forgetmeai)**
+
+</div>
