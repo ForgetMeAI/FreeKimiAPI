@@ -40,7 +40,7 @@ custom_providers:
         context_length: 200000
 YAML
   rm -f /tmp/cfbt_hermes_real.txt
-  (cd /tmp && hermes -p cfbt-kimi-smoke chat -Q --yolo --provider custom:cfbt-kimi --model cfbt-kimi -t terminal,file -q 'Create file /tmp/cfbt_hermes_real.txt containing exactly CFBT_HERMES_REAL, then answer DONE.') > "$OUT/hermes.txt" 2>&1
+  (cd /tmp && hermes -p cfbt-kimi-smoke chat -Q --yolo --provider custom:cfbt-kimi --model cfbt-kimi -t terminal,file -q 'Use a terminal command `printf %s CFBT_HERMES_REAL > /tmp/cfbt_hermes_real.txt`, then answer DONE.') > "$OUT/hermes.txt" 2>&1
   if check_file /tmp/cfbt_hermes_real.txt CFBT_HERMES_REAL; then record hermes pass /tmp/cfbt_hermes_real.txt "created sentinel"; else record hermes fail /tmp/cfbt_hermes_real.txt "see hermes.txt"; fi
 else record hermes skipped "" "hermes not installed"; fi
 

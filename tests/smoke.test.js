@@ -56,6 +56,39 @@ try {
   });
   const tool = await r.json();
   assert.equal(tool.choices[0].finish_reason, 'tool_calls');
+
+  r = await fetch(base + '/chat/completions', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      model: 'cfbt-kimi',
+      messages: [{ role: 'user', content: 'Use a terminal command to write the current date into /tmp/cfbt_terminal_date.txt, then answer DONE.' }],
+      tools: [
+        {
+          type: 'function',
+          function: {
+            name: 'terminal',
+            parameters: {
+              type: 'object',
+              properties: {
+                command: { type: 'string' },
+                description: { type: 'string' },
+              },
+              required: ['command'],
+            },
+          },
+        },
+      ],
+      tool_choice: 'auto',
+    }),
+  });
+  const terminalTool = await r.json();
+  assert.equal(terminalTool.choices[0].finish_reason, 'tool_calls');
+  const terminalCall = terminalTool.choices[0].message.tool_calls[0];
+  assert.equal(terminalCall.function.name, 'terminal');
+  const terminalArgs = JSON.parse(terminalCall.function.arguments);
+  assert.match(terminalArgs.command, /^date > /);
+  assert.match(terminalArgs.command, /cfbt_terminal_date\.txt/);
   console.log('ok');
 } finally {
   child.kill('SIGTERM');

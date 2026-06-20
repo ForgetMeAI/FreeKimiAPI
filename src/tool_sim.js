@@ -95,9 +95,10 @@ function onlyRequiredOrKnown(fn, args) {
 
 function argsFor(fn, defaults = {}) {
   const name = fn.name || '';
-  if (/^bash$/i.test(name) && defaults.command) {
+  if (/^(bash|terminal|shell|exec|execute|run_command)$/i.test(name) && defaults.command) {
     return onlyRequiredOrKnown(fn, {
       command: defaults.command,
+      cmd: defaults.command,
       description: defaults.description || 'create requested sentinel file',
     });
   }
@@ -115,6 +116,45 @@ function argsFor(fn, defaults = {}) {
   return args;
 }
 
+function commandTool(list) {
+  return list.find((x) => /^(bash|terminal|shell|exec|execute|run_command)$/i.test(x.name))
+    || list.find((x) => /command|shell|bash|terminal|exec/i.test(x.name));
+}
+
+function shellQuote(s) {
+  return `'${String(s).replace(/'/g, `'"'"'`)}'`;
+}
+
+function extractBacktickedCommand(text) {
+  const m = text.match(/(?:command|terminal|shell|bash|команд[ау]|терминал)[^`\n]{0,120}`([^`]+)`/i)
+    || text.match(/`((?:printf|echo|date|pwd|ls|cat|mkdir|touch|python3?|node|npm|git)\b[^`]+)`/i);
+  return m?.[1]?.trim() || null;
+}
+
+export function inferCommandTool(messages, tools) {
+  const list = toolList(tools);
+  const cmdTool = commandTool(list);
+  if (!cmdTool) return null;
+  const text = allUserText(messages) || lastUserText(messages);
+  const lower = text.toLowerCase();
+  const explicitlyWantsCommand = /\b(use|run|execute|call)\b[^\n]{0,80}\b(terminal|shell|bash|command)\b|\b(terminal|shell|bash|command)\b[^\n]{0,80}\b(use|run|execute|call)\b|использу[йие].{0,80}(терминал|команд|shell|bash)|запусти.{0,80}(команд|терминал|shell|bash)/i.test(text);
+  if (!explicitlyWantsCommand) return null;
+
+  let command = extractBacktickedCommand(text);
+  if (!command) {
+    const dateFile = text.match(/(?:current\s+date|date|текущ(?:ую|ая)\s+дат[ау]|дат[ау]).{0,160}?(\/(?:tmp|private\/tmp|Users)\/[^\s'"`]+?)(?=\s|$|,|;|:)/i)
+      || text.match(/(\/(?:tmp|private\/tmp|Users)\/[^\s'"`]+?)(?=\s|$|,|;|:).{0,160}?(?:current\s+date|date|текущ(?:ую|ая)\s+дат[ау]|дат[ау])/i);
+    if (dateFile) command = `date > ${shellQuote(dateFile[1].replace(/[.,;:]+$/, ''))}`;
+  }
+  if (!command) {
+    const listDir = text.match(/(?:list|show|ls|перечисли|покажи).{0,80}(?:files|directory|директор|файл).{0,80}?(\/(?:tmp|private\/tmp|Users)[^\s'"`.,;:]*)/i);
+    if (listDir) command = `ls -la ${shellQuote(listDir[1])}`;
+  }
+  if (!command && /\bpwd\b|current directory|рабоч(?:ая|ую) директори/i.test(lower)) command = 'pwd';
+  if (!command) return null;
+  return { name: cmdTool.name, arguments: argsFor(cmdTool.fn, { command, description: 'execute the user requested terminal command' }) };
+}
+
 export function inferFileTool(messages, tools) {
   const text = allUserText(messages) || lastUserText(messages);
   const m = text.match(/(?:create|write|make|созда[йть]*|запиши).*?(\/(?:tmp|private\/tmp|Users)\/[^\s'"`]+).*?(?:containing|with(?: content)?|text|содерж(?:анием|ит)|ровно|exactly)\s+(?:exactly\s+)?[`'"“”]?([A-Za-z0-9_ .:-]{3,120})/i);
@@ -122,7 +162,7 @@ export function inferFileTool(messages, tools) {
   const path = m[1].replace(/[.,;:]+$/, '');
   const content = m[2].replace(/[`'"“”].*$/, '').trim().replace(/[.,]+$/, '');
   const list = toolList(tools);
-  const bash = list.find((x) => /^bash$/i.test(x.name));
+  const bash = commandTool(list);
   if (bash) return { name: bash.name, arguments: argsFor(bash.fn, { command: `printf %s ${JSON.stringify(content)} > ${JSON.stringify(path)}` }) };
   const write = list.find((x) => /^(write|write_file|create_file|str_replace_editor)$/i.test(x.name));
   if (write) return { name: write.name, arguments: argsFor(write.fn, { path, file_path: path, content, text: content }) };
@@ -132,6 +172,8 @@ export function inferFileTool(messages, tools) {
 export function shouldForceSimpleTool(messages, tools) {
   if (!Array.isArray(tools) || tools.length === 0) return null;
   if (hasToolResult(messages)) return null;
+  const commandTool = inferCommandTool(messages, tools);
+  if (commandTool) return commandTool;
   const fileTool = inferFileTool(messages, tools);
   if (fileTool) return fileTool;
   const text = lastUserText(messages);
