@@ -131,16 +131,36 @@ function extractBacktickedCommand(text) {
   return m?.[1]?.trim() || null;
 }
 
+function inferPythonScriptCommand(text) {
+  const script = text.match(/(?:^|[\s`'"“”])((?:\.\/)?[A-Za-z0-9_.-]+\.py)(?=$|[\s`'"“”.,;:])/i)?.[1];
+  if (!script) return null;
+  const wantsCreate = /create|write|make|созда[йть]|напиши|сделай/i.test(text);
+  const wantsRun = /run|execute|launch|запусти|выполни|пусти/i.test(text);
+  const wantsDelete = /delete|remove|rm\b|удали|стереть/i.test(text);
+  if (!wantsCreate || !wantsRun) return null;
+  const safeScript = script.replace(/^\.\//, '');
+  if (!/^[A-Za-z0-9_.-]+\.py$/i.test(safeScript)) return null;
+  const wantsDate = /date|time|datetime|дат[ауеы]?|врем/i.test(text);
+  const code = wantsDate
+    ? 'import datetime\nprint(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))\n'
+    : 'print("KIMI_TEST_OK")\n';
+  const cleanup = wantsDelete ? `\nrm -f ${shellQuote(safeScript)}` : '';
+  return `cat > ${shellQuote(safeScript)} <<'PY'\n${code}PY\npython3 ${shellQuote(safeScript)}${cleanup}`;
+}
+
 export function inferCommandTool(messages, tools) {
   const list = toolList(tools);
   const cmdTool = commandTool(list);
   if (!cmdTool) return null;
   const text = allUserText(messages) || lastUserText(messages);
+  const last = lastUserText(messages);
+  if (/\b(do\s+not|don't|dont)\b.{0,80}\b(run|execute|call|use)\b|не\s+(?:делай|выполняй|запускай|используй)/i.test(last)) return null;
   const lower = text.toLowerCase();
+  let command = inferPythonScriptCommand(text);
   const explicitlyWantsCommand = /\b(use|run|execute|call)\b[^\n]{0,80}\b(terminal|shell|bash|command)\b|\b(terminal|shell|bash|command)\b[^\n]{0,80}\b(use|run|execute|call)\b|использу[йие].{0,80}(терминал|команд|shell|bash)|запусти.{0,80}(команд|терминал|shell|bash)/i.test(text);
-  if (!explicitlyWantsCommand) return null;
+  if (!command && !explicitlyWantsCommand) return null;
 
-  let command = extractBacktickedCommand(text);
+  if (!command) command = extractBacktickedCommand(text);
   if (!command) {
     const dateFile = text.match(/(?:current\s+date|date|текущ(?:ую|ая)\s+дат[ау]|дат[ау]).{0,160}?(\/(?:tmp|private\/tmp|Users)\/[^\s'"`]+?)(?=\s|$|,|;|:)/i)
       || text.match(/(\/(?:tmp|private\/tmp|Users)\/[^\s'"`]+?)(?=\s|$|,|;|:).{0,160}?(?:current\s+date|date|текущ(?:ую|ая)\s+дат[ау]|дат[ау])/i);

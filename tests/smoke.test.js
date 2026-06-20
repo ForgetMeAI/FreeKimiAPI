@@ -89,6 +89,40 @@ try {
   const terminalArgs = JSON.parse(terminalCall.function.arguments);
   assert.match(terminalArgs.command, /^date > /);
   assert.match(terminalArgs.command, /cfbt_terminal_date\.txt/);
+
+  r = await fetch(base + '/chat/completions', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      model: 'cfbt-kimi',
+      messages: [
+        { role: 'user', content: 'Создай скрипт kimi-test.py, который выводит дату и время, запусти его и удали.' },
+      ],
+      tools: [
+        {
+          type: 'function',
+          function: {
+            name: 'terminal',
+            parameters: {
+              type: 'object',
+              properties: {
+                command: { type: 'string' },
+                description: { type: 'string' },
+              },
+              required: ['command'],
+            },
+          },
+        },
+      ],
+      tool_choice: 'auto',
+    }),
+  });
+  const scriptTool = await r.json();
+  assert.equal(scriptTool.choices[0].finish_reason, 'tool_calls');
+  const scriptArgs = JSON.parse(scriptTool.choices[0].message.tool_calls[0].function.arguments);
+  assert.match(scriptArgs.command, /cat > 'kimi-test\.py'/);
+  assert.match(scriptArgs.command, /python3 'kimi-test\.py'/);
+  assert.match(scriptArgs.command, /rm -f 'kimi-test\.py'/);
   console.log('ok');
 } finally {
   child.kill('SIGTERM');
