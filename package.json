@@ -1,0 +1,20 @@
+{
+  "name": "freecfbtkimiapi",
+  "version": "1.0.0",
+  "description": "Local OpenAI/Anthropic/Responses-compatible proxy for CFBT Kimi endpoint, with agent E2E tests.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "node tests/smoke.test.js && node scripts/endpoint_matrix_smoke.js",
+    "start": "node src/server.js",
+    "smoke": "node scripts/smoke.js",
+    "e2e": "bash scripts/agent_clients_e2e.sh"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "type": "module"
+}
