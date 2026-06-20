@@ -1,8 +1,20 @@
+<div align="center">
+
 # FreeCFBTKimiAPI
 
-Local **OpenAI / Anthropic / OpenAI Responses-compatible** proxy for the keyless `cfbt.ccwu.cc` Kimi endpoint.
+**Локальный OpenAI / Anthropic / OpenAI Responses-compatible прокси для keyless Kimi endpoint `cfbt.ccwu.cc`**
 
-It lets coding agents and API clients talk to a local endpoint:
+[![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
+[![OpenAI Chat](https://img.shields.io/badge/OpenAI-Chat%20Completions-111827?style=for-the-badge)](#api-endpoints)
+[![Anthropic](https://img.shields.io/badge/Anthropic-Messages-191919?style=for-the-badge)](#подключение-клиентов)
+[![Responses API](https://img.shields.io/badge/OpenAI-Responses-4F46E5?style=for-the-badge)](#api-endpoints)
+[![Kimi](https://img.shields.io/badge/Kimi-K2.6-00A3FF?style=for-the-badge)](#модели)
+
+</div>
+
+---
+
+FreeCFBTKimiAPI позволяет Claude Code, Hermes, OpenCode, Codex, SDK-клиентам и другим AI-агентам обращаться к локальному API:
 
 ```text
 Claude Code / Hermes / OpenCode / Codex / SDKs
@@ -14,24 +26,60 @@ https://cfbt.ccwu.cc/v1
 Cloudflare-hosted Kimi model
 ```
 
-> **Important:** this is a local proxy to a remote third-party/keyless upstream. It is **not** a local LLM and not an official Moonshot/Kimi API. Treat it as an experimental free endpoint for demos, learning, and agent testing — not as production infrastructure.
+> **Важно:** это локальный прокси к удалённому стороннему/keyless upstream. Это **не локальная LLM** и **не официальный Moonshot/Kimi API**. Используй проект как экспериментальный бесплатный endpoint для демо, обучения и тестов AI-агентов, а не как production-инфраструктуру.
 
-## What works
+---
 
-Verified on this machine with real sentinel-file agent tasks:
+## Навигация
+
+- [Что это даёт](#что-это-даёт)
+- [Что уже проверено](#что-уже-проверено)
+- [Быстрый старт](#быстрый-старт)
+- [Модели](#модели)
+- [API endpoints](#api-endpoints)
+- [Конфигурация](#конфигурация)
+- [Подключение клиентов](#подключение-клиентов)
+  - [Claude Code](#claude-code)
+  - [Hermes Agent](#hermes-agent)
+  - [OpenCode](#opencode)
+  - [Codex CLI](#codex-cli)
+- [Тестирование](#тестирование)
+- [Архитектура](#архитектура)
+- [Ограничения](#ограничения)
+- [Позиционирование для публичного демо](#позиционирование-для-публичного-демо)
+- [Безопасность](#безопасность)
+- [Документация](#документация)
+
+---
+
+## Что это даёт
+
+| Было | Стало |
+| --- | --- |
+| Есть сторонний keyless Kimi endpoint | Есть локальный API на `http://127.0.0.1:3271` |
+| Разные агенты ждут разные API-форматы | Один прокси отдаёт OpenAI Chat, Anthropic Messages и OpenAI Responses |
+| Coding agents требуют tool loop | Прокси нормализует tool-call simulation и tool-result continuation |
+| Upstream может отвечать нестабильно | Есть timeout, retry, jitter, circuit breaker и диагностика |
+| Демо легко переобещать | В документации явно написано: это прокси к удалённому endpoint, не локальная модель |
+
+---
+
+## Что уже проверено
+
+Проверено на этой машине реальными agent-задачами с sentinel-файлами:
 
 - ✅ OpenAI Chat Completions: `/v1/chat/completions`
-- ✅ OpenAI Chat streaming normalization
-- ✅ OpenAI tool-call simulation + tool-result continuation
+- ✅ нормализация OpenAI Chat streaming
+- ✅ симуляция OpenAI tool calls + продолжение после tool result
 - ✅ Anthropic Messages shim: `/v1/messages`
 - ✅ OpenAI Responses shim: `/v1/responses`
 - ✅ Claude Code agent E2E
 - ✅ Hermes Agent E2E
 - ✅ OpenCode E2E
-- ✅ Codex CLI E2E via Responses API
-- ⚠️ OpenClaw model catalog can see the model, but `agent --local` may still report `Unknown model` until its profile/gateway registry is aligned
+- ✅ Codex CLI E2E через Responses API
+- ⚠️ OpenClaw видит модель в каталоге, но `agent --local` может всё ещё выдавать `Unknown model`, пока не выровнен его profile/gateway registry
 
-Latest local verification:
+Последняя локальная проверка:
 
 ```text
 npm test: PASS
@@ -43,34 +91,36 @@ npm run e2e:
   openclaw: pending/runtime-profile issue
 ```
 
-## Quick start
+---
+
+## Быстрый старт
 
 ```bash
-git clone <your-fork-url> FreeCFBTKimiAPI
-cd FreeCFBTKimiAPI
+git clone https://github.com/ForgetMeAI/FreeKimiAPI.git
+cd FreeKimiAPI
 cp .env.example .env
 npm start
 ```
 
-Default server:
+Сервер по умолчанию:
 
 ```text
 http://127.0.0.1:3271
 ```
 
-Default OpenAI-compatible base URL:
+OpenAI-compatible base URL по умолчанию:
 
 ```text
 http://127.0.0.1:3271/v1
 ```
 
-Health check:
+Проверка здоровья:
 
 ```bash
 curl http://127.0.0.1:3271/api/status
 ```
 
-Expected shape:
+Ожидаемая форма ответа:
 
 ```json
 {
@@ -81,19 +131,23 @@ Expected shape:
 }
 ```
 
-## Models
+---
 
-Local aliases:
+## Модели
+
+Локальные алиасы:
 
 - `cfbt-kimi`
 - `kimi-k2.6`
 - `@cf/moonshotai/kimi-k2.6`
 
-Model list:
+Список моделей:
 
 ```bash
 curl http://127.0.0.1:3271/v1/models
 ```
+
+---
 
 ## API endpoints
 
@@ -104,14 +158,14 @@ GET  /v1/models
 POST /v1/chat/completions
 ```
 
-Example:
+Пример:
 
 ```bash
 curl http://127.0.0.1:3271/v1/chat/completions \
   -H 'content-type: application/json' \
   -d '{
     "model":"cfbt-kimi",
-    "messages":[{"role":"user","content":"Reply exactly HELLO"}],
+    "messages":[{"role":"user","content":"Ответь ровно: HELLO"}],
     "temperature":0,
     "max_tokens":512
   }'
@@ -123,7 +177,7 @@ curl http://127.0.0.1:3271/v1/chat/completions \
 POST /v1/messages
 ```
 
-Used by Claude Code-style clients.
+Используется Claude Code-подобными клиентами.
 
 ### OpenAI Responses shim
 
@@ -131,26 +185,28 @@ Used by Claude Code-style clients.
 POST /v1/responses
 ```
 
-Used by Codex/OpenAI Responses-style clients. The shim supports structural `function_call` output and streaming post-tool continuation events required by Codex.
+Используется Codex/OpenAI Responses-style клиентами. Shim поддерживает структурный `function_call` output и streaming events для продолжения после tool call, которые нужны Codex.
 
-### Diagnostics
+### Диагностика
 
 ```text
 GET /api/status
 GET /api/diagnostics
 ```
 
-`/api/diagnostics` checks the upstream model endpoint and returns a short preview.
+`/api/diagnostics` проверяет upstream model endpoint и возвращает короткий preview.
 
-## Configuration
+---
 
-Copy `.env.example` to `.env`:
+## Конфигурация
+
+Скопируй `.env.example` в `.env`:
 
 ```bash
 cp .env.example .env
 ```
 
-Available env vars:
+Доступные env-переменные:
 
 ```bash
 PORT=3271
@@ -166,21 +222,23 @@ CFBT_CLIENT_PROFILE_MODE=round_robin
 CFBT_LOG_REQUESTS=0
 ```
 
-Reliability features:
+Reliability-функции:
 
-- request timeout;
-- retry with jitter;
-- circuit breaker after repeated upstream capacity/rate failures;
-- normal browser-compatible request headers/profile rotation;
-- explicit upstream error classification.
+- timeout запроса;
+- retry с jitter;
+- circuit breaker после повторяющихся capacity/rate ошибок upstream;
+- обычные browser-compatible headers и rotation client profiles;
+- явная классификация upstream-ошибок.
 
-This is reliability hardening, **not** a stealth anti-bot bypass.
+Это hardening надёжности, **а не stealth anti-bot bypass**.
 
-## Connect clients
+---
 
-Detailed recipes are in [`docs/AGENT_CLIENTS.md`](docs/AGENT_CLIENTS.md).
+## Подключение клиентов
 
-Short version:
+Подробные рецепты лежат в [`docs/AGENT_CLIENTS.md`](docs/AGENT_CLIENTS.md).
+
+Короткая версия:
 
 ### Claude Code
 
@@ -192,7 +250,7 @@ claude --model cfbt-kimi
 
 ### Hermes Agent
 
-Use a custom OpenAI-compatible provider pointed at:
+Используй custom OpenAI-compatible provider с base URL:
 
 ```text
 http://127.0.0.1:3271/v1
@@ -200,7 +258,7 @@ http://127.0.0.1:3271/v1
 
 ### OpenCode
 
-Use an OpenAI-compatible provider through `@ai-sdk/openai-compatible` with base URL:
+Используй OpenAI-compatible provider через `@ai-sdk/openai-compatible` с base URL:
 
 ```text
 http://127.0.0.1:3271/v1
@@ -208,7 +266,7 @@ http://127.0.0.1:3271/v1
 
 ### Codex CLI
 
-Use custom provider with Responses wire:
+Используй custom provider с Responses wire:
 
 ```toml
 model = "cfbt-kimi"
@@ -221,7 +279,9 @@ api_key = "dummy"
 wire_api = "responses"
 ```
 
-## Testing
+---
+
+## Тестирование
 
 Endpoint + protocol matrix:
 
@@ -229,15 +289,15 @@ Endpoint + protocol matrix:
 npm test
 ```
 
-Real agent-client E2E matrix:
+Реальная E2E-матрица agent-клиентов:
 
 ```bash
 npm run e2e
 ```
 
-The E2E script creates sentinel files under `/tmp` and verifies that the client actually executed tools, not just printed a plausible answer.
+E2E-скрипт создаёт sentinel-файлы в `/tmp` и проверяет, что клиент действительно выполнил tools, а не просто напечатал правдоподобный ответ.
 
-Current expected result:
+Текущий ожидаемый результат:
 
 ```text
 claude-code: pass
@@ -247,41 +307,58 @@ codex: pass
 openclaw: pending
 ```
 
-## Architecture
+---
 
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+## Архитектура
 
-High level:
+См. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
-- `src/server.js` — local HTTP API surface and protocol shims;
+Верхнеуровнево:
+
+- `src/server.js` — локальный HTTP API и protocol shims;
 - `src/upstream.js` — CFBT upstream client, retry/backoff/circuit breaker;
-- `src/tool_sim.js` — tool-call parser, deterministic smoke fallbacks, loop-safe continuation;
-- `src/config.js` — dotenv/env config and client profile selection;
-- `scripts/endpoint_matrix_smoke.js` — endpoint/protocol regression smoke;
-- `scripts/agent_clients_e2e.sh` — real coding-agent E2E matrix.
+- `src/tool_sim.js` — parser tool calls, deterministic smoke fallbacks, loop-safe continuation;
+- `src/config.js` — dotenv/env config и client profile selection;
+- `scripts/endpoint_matrix_smoke.js` — regression smoke для endpoint/protocol matrix;
+- `scripts/agent_clients_e2e.sh` — реальная E2E-матрица coding agents.
 
-## Limitations
+---
 
-- Upstream can return rate/capacity errors such as `3040 Capacity temporarily exceeded`.
-- Upstream can block or change behavior without warning.
-- This is not official Moonshot/Kimi infrastructure.
-- Do not send private code, passwords, API keys, customer data, or unreleased commercial secrets to free third-party endpoints.
-- Tool use is simulated at the proxy layer. It is good enough for many agent tasks and smoke tests, but it is not native Kimi tool calling.
-- Public demos should say “local proxy to remote free endpoint”, not “free local model”.
+## Ограничения
 
-## Public demo positioning
+- Upstream может возвращать rate/capacity ошибки вроде `3040 Capacity temporarily exceeded`.
+- Upstream может заблокировать запросы или изменить поведение без предупреждения.
+- Это не официальная инфраструктура Moonshot/Kimi.
+- Не отправляй приватный код, пароли, API keys, customer data или коммерческие секреты в бесплатные сторонние endpoints.
+- Tool use симулируется на уровне прокси. Этого хватает для многих agent-задач и smoke-тестов, но это не native Kimi tool calling.
+- Для публичных демо говори “local proxy to remote free endpoint”, а не “free local model”.
 
-Good framing:
+---
 
-> “I’m running a local OpenAI/Anthropic/Responses-compatible API proxy. The model itself runs remotely through a free/keyless endpoint, but locally my agents see a normal API server.”
+## Позиционирование для публичного демо
 
-Avoid:
+Хорошая формулировка:
+
+> “Я запускаю локальный OpenAI/Anthropic/Responses-compatible API proxy. Сама модель работает удалённо через free/keyless endpoint, но локально мои агенты видят обычный API server.”
+
+Не стоит говорить:
 
 - “official Kimi API”;
 - “local Kimi model”;
 - “production-ready unlimited free API”;
 - “bypass Cloudflare/rate limits”.
 
-## Safety
+---
 
-This project is for local experiments and education. Keep secrets out of prompts, logs, examples, commits, and public videos.
+## Безопасность
+
+Проект предназначен для локальных экспериментов и обучения. Не допускай попадания секретов в prompts, logs, examples, commits и публичные видео.
+
+---
+
+## Документация
+
+- [Настройка agent-клиентов](docs/AGENT_CLIENTS.md)
+- [Архитектура](docs/ARCHITECTURE.md)
+- [Гайд для публичного демо](docs/PUBLIC_DEMO_GUIDE.md)
+- [Отчёт о проверке](docs/VERIFICATION.md)

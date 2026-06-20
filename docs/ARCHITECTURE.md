@@ -1,6 +1,6 @@
-# FreeCFBTKimiAPI architecture
+# Архитектура FreeCFBTKimiAPI
 
-FreeCFBTKimiAPI is a small local compatibility proxy. It does not host model weights locally. It accepts common agent API dialects and forwards plain chat requests to the keyless CFBT Kimi upstream.
+FreeCFBTKimiAPI — небольшой локальный compatibility proxy. Он не хранит model weights локально. Прокси принимает распространённые API-диалекты для AI-агентов и пересылает обычные chat-запросы в keyless CFBT Kimi upstream.
 
 ## Runtime flow
 
@@ -19,11 +19,11 @@ CFBT upstream client with retry/backoff/circuit breaker
 https://cfbt.ccwu.cc/v1/chat/completions
 ```
 
-## Modules
+## Модули
 
 ### `src/server.js`
 
-Owns the local HTTP server and all public compatibility routes:
+Отвечает за локальный HTTP server и все публичные compatibility routes:
 
 - `GET /`, `/health`, `/api/status`
 - `GET /api/diagnostics`
@@ -32,20 +32,20 @@ Owns the local HTTP server and all public compatibility routes:
 - `POST /v1/messages`, `/messages`
 - `POST /v1/responses`, `/responses`
 
-It is intentionally dependency-free: Node's built-in `http` server plus `fetch`.
+Файл намеренно не требует внешних dependencies: только встроенный Node `http` server и `fetch`.
 
 ### `src/upstream.js`
 
-Owns upstream calls and reliability controls:
+Отвечает за upstream-запросы и controls надёжности:
 
-- model alias normalization;
-- request timeout via `AbortController`;
-- retry with jitter;
-- circuit breaker after repeated capacity/rate failures;
+- нормализация model aliases;
+- request timeout через `AbortController`;
+- retry с jitter;
+- circuit breaker после повторяющихся capacity/rate failures;
 - browser-compatible normal headers/profile selection;
-- error classification.
+- классификация ошибок.
 
-Error classes include:
+Классы ошибок:
 
 - `capacity_exceeded`
 - `blocked_by_upstream`
@@ -55,84 +55,84 @@ Error classes include:
 
 ### `src/tool_sim.js`
 
-Owns proxy-layer tool-call simulation for a non-tool-native upstream:
+Отвечает за proxy-layer tool-call simulation для upstream, у которого нет native tools:
 
-- inserts a compact tool adapter prompt;
-- parses XML / fenced JSON / raw JSON tool-call output;
-- provides deterministic file/shell tool fallback for smoke tests;
-- detects tool-result messages;
-- stops forcing tools after a tool result;
-- returns final `DONE` / `Done.` when the task asks for it.
+- вставляет компактный tool adapter prompt;
+- парсит XML / fenced JSON / raw JSON tool-call output;
+- даёт deterministic file/shell tool fallback для smoke-тестов;
+- определяет tool-result messages;
+- перестаёт форсировать tools после tool result;
+- возвращает финальный `DONE` / `Done.`, если задача этого просит.
 
 ### `src/config.js`
 
-Loads `.env` and exposes runtime config:
+Загружает `.env` и отдаёт runtime config:
 
 - port;
-- upstream base URL and model;
+- upstream base URL и model;
 - max-token default;
 - retry/circuit-breaker settings;
-- client profile mode and profiles.
+- client profile mode и profiles.
 
 ## Wire dialects
 
 ### OpenAI Chat Completions
 
-Used by many SDKs, Hermes custom providers, and OpenCode-compatible paths.
+Используется многими SDK, Hermes custom providers и OpenCode-compatible путями.
 
-For streaming requests, the server currently calls upstream non-streaming and re-emits a clean local SSE stream. This avoids CFBT/Kimi reasoning-first streaming quirks where agent clients can see no `delta.content` for too long.
+Для streaming-запросов сервер сейчас вызывает upstream в non-streaming режиме и переизлучает чистый локальный SSE stream. Это помогает обойти CFBT/Kimi reasoning-first streaming quirks, когда agent-клиенты слишком долго не видят `delta.content`.
 
-Tool calls are emitted as normal OpenAI `tool_calls` with `finish_reason: "tool_calls"`.
+Tool calls возвращаются как обычные OpenAI `tool_calls` с `finish_reason: "tool_calls"`.
 
 ### Anthropic Messages
 
-Used by Claude Code. The shim maps Anthropic messages/tools into the internal OpenAI-like tool simulation path and returns Anthropic content blocks:
+Используется Claude Code. Shim мапит Anthropic messages/tools во внутренний OpenAI-like tool simulation path и возвращает Anthropic content blocks:
 
 - text answer: `{ type: "text", text: "..." }`
 - tool call: `{ type: "tool_use", id, name, input }`
 
 ### OpenAI Responses
 
-Used by Codex-style clients. Important compatibility details:
+Используется Codex-style клиентами. Важные детали совместимости:
 
-- file/shell tasks with tools return structural `output[].type == "function_call"`;
-- tool arguments include both `cmd` and `command` for command-tool compatibility;
-- streaming branches emit complete Responses event lifecycle;
-- post-tool streaming continuation returns `response.completed`, otherwise Codex may fail after executing the command.
+- file/shell tasks с tools возвращают структурный `output[].type == "function_call"`;
+- tool arguments включают и `cmd`, и `command` для совместимости command-tools;
+- streaming branches отдают полный Responses event lifecycle;
+- streaming-продолжение после tool call возвращает `response.completed`, иначе Codex может упасть уже после выполнения команды.
 
-## Why deterministic tool fallbacks exist
+## Зачем нужны deterministic tool fallbacks
 
-Free/keyless models often fail agent tool use in one of three ways:
+Free/keyless models часто ломают agent tool use одним из трёх способов:
 
-1. write malformed tool JSON/XML;
-2. use the wrong argument key;
-3. describe the command instead of requesting a tool call.
+1. пишут malformed tool JSON/XML;
+2. используют неправильный argument key;
+3. описывают команду текстом вместо запроса tool call.
 
-For public agent smoke tests, the proxy includes a deterministic fallback for explicit file-create/tool-name tasks. This is not meant to replace model intelligence; it makes protocol compatibility testable and prevents false failures caused by weak tool formatting.
+Для публичных agent smoke-тестов прокси включает deterministic fallback для явных file-create/tool-name задач. Это не замена model intelligence; это способ сделать protocol compatibility проверяемой и не ловить false failures из-за слабого formatting tools.
 
-## OpenClaw status
+## Статус OpenClaw
 
-OpenClaw custom catalog can see `openai/cfbt-kimi` via:
+OpenClaw custom catalog видит `openai/cfbt-kimi` через:
 
 ```text
 ~/.openclaw-<profile>/agents/main/agent/models.json
 ```
 
-and primary model can be set through:
+primary model можно задать через:
 
 ```text
 agents.defaults.model.primary
 ```
 
-In local testing, `openclaw models list` saw the model, but `openclaw agent --local` still reported `Unknown model: openai/cfbt-kimi`. Classify this as OpenClaw runtime/profile registry alignment, not a FreeCFBTKimiAPI endpoint failure, unless further debugging proves otherwise.
+В локальном тестировании `openclaw models list` видел модель, но `openclaw agent --local` всё ещё отвечал `Unknown model: openai/cfbt-kimi`. Считай это проблемой alignment OpenClaw runtime/profile registry, а не failure endpoint FreeCFBTKimiAPI, пока дальнейший debugging не докажет обратное.
 
-## Verification rule
+## Правило проверки
 
-Do not call this project agent-ready after only plain chat tests. Required matrix:
+Не называй проект agent-ready после одних plain chat тестов. Нужная матрица:
 
 1. `/v1/models`
 2. plain chat
 3. OpenAI tool loop
 4. Anthropic Messages
 5. Responses API
-6. real downstream clients creating sentinel files
+6. реальные downstream clients, которые создают sentinel-файлы

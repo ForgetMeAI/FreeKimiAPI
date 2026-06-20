@@ -1,43 +1,43 @@
-# Public demo guide
+# Гайд для публичного демо
 
-Use this guide when presenting FreeCFBTKimiAPI to an audience.
+Используй этот документ, когда показываешь FreeCFBTKimiAPI аудитории.
 
-## Correct positioning
+## Корректное позиционирование
 
-Say:
+Говори:
 
-> “This is a local API proxy. Agents connect to `localhost`, while the model itself runs remotely through a free/keyless CFBT Kimi endpoint.”
+> “Это локальный API proxy. Агенты подключаются к `localhost`, а сама модель работает удалённо через free/keyless CFBT Kimi endpoint.”
 
-Do not say:
+Не говори:
 
 - “local Kimi model”;
 - “official Moonshot/Kimi API”;
 - “unlimited production API”;
 - “Cloudflare bypass”.
 
-## Demo flow
+## Сценарий демо
 
-### 1. Start server
+### 1. Запусти сервер
 
 ```bash
-cd FreeCFBTKimiAPI
+cd FreeKimiAPI
 cp .env.example .env
 npm start
 ```
 
-### 2. Show health
+### 2. Покажи health
 
 ```bash
 curl http://127.0.0.1:3271/api/status
 ```
 
-### 3. Show model list
+### 3. Покажи список моделей
 
 ```bash
 curl http://127.0.0.1:3271/v1/models
 ```
 
-### 4. Show plain chat
+### 4. Покажи обычный chat
 
 ```bash
 curl http://127.0.0.1:3271/v1/chat/completions \
@@ -50,21 +50,21 @@ curl http://127.0.0.1:3271/v1/chat/completions \
   }'
 ```
 
-### 5. Show agent support
+### 5. Покажи поддержку агентов
 
-Run the built-in endpoint matrix:
+Запусти встроенную endpoint matrix:
 
 ```bash
 npm test
 ```
 
-Then, if the machine has agent clients installed:
+Затем, если на машине установлены agent-клиенты:
 
 ```bash
 npm run e2e
 ```
 
-Show the output lines:
+Покажи строки вывода:
 
 ```text
 claude-code: pass
@@ -73,43 +73,43 @@ opencode: pass
 codex: pass
 ```
 
-Explain that each pass means the client created a real sentinel file through tool execution.
+Объясни, что каждый `pass` означает: клиент создал реальный sentinel-файл через tool execution.
 
-## What to emphasize
+## На чём делать акцент
 
-- One local endpoint can support several agent ecosystems:
-  - Claude Code via Anthropic Messages;
-  - Hermes/OpenCode via OpenAI-compatible Chat Completions;
-  - Codex via OpenAI Responses.
-- The proxy normalizes weird upstream behavior into clean API shapes.
-- The project includes tests that verify real tool execution, not just text answers.
-- Reliability features are built in: timeout, retry, jitter, circuit breaker, diagnostics.
+- Один локальный endpoint может обслуживать несколько agent ecosystems:
+  - Claude Code через Anthropic Messages;
+  - Hermes/OpenCode через OpenAI-compatible Chat Completions;
+  - Codex через OpenAI Responses.
+- Прокси нормализует странное поведение upstream в чистые API shapes.
+- В проекте есть тесты, которые проверяют реальное выполнение tools, а не просто текстовые ответы.
+- Встроены функции надёжности: timeout, retry, jitter, circuit breaker, diagnostics.
 
-## What to avoid showing
+## Что не показывать
 
 - private code;
 - API keys/passwords/tokens;
-- real customer/user data;
-- claims that rate limits are bypassed;
-- attempts to overload the upstream.
+- реальные customer/user data;
+- утверждения, что rate limits bypassed;
+- попытки перегрузить upstream.
 
-## Known caveats slide
+## Слайд с известными caveats
 
-Use this wording:
+Используй такую формулировку:
 
-> “Because this depends on a free/keyless third-party upstream, availability is not guaranteed. The proxy classifies capacity/rate/upstream errors and retries where reasonable, but it cannot promise production reliability.”
+> “Поскольку проект зависит от free/keyless third-party upstream, доступность не гарантируется. Прокси классифицирует capacity/rate/upstream errors и делает retry там, где это разумно, но production reliability обещать нельзя.”
 
-## Suggested video title angles
+## Варианты названий для видео
 
 - “Я подключил бесплатный Kimi endpoint к Claude Code, Codex, Hermes и OpenCode”
 - “Один локальный API для AI-агентов: Claude Code, Codex, Hermes, OpenCode”
 - “Бесплатный Kimi как localhost API для агентов — с честными ограничениями”
 - “Как сделать OpenAI/Anthropic-compatible proxy для бесплатной модели”
 
-## Recommended CTA
+## Рекомендуемый CTA
 
-Point viewers to:
+Направляй зрителей сюда:
 
-- README quick start;
-- `docs/AGENT_CLIENTS.md` for client setup;
-- `npm test` and `npm run e2e` before they claim their setup works.
+- quick start в README;
+- `docs/AGENT_CLIENTS.md` для настройки клиентов;
+- `npm test` и `npm run e2e`, прежде чем они будут говорить, что setup реально работает.

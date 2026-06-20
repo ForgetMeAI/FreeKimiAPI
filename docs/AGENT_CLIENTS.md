@@ -1,9 +1,9 @@
-# Agent client setup
+# Настройка agent-клиентов
 
-These recipes assume FreeCFBTKimiAPI is running locally:
+Эти рецепты предполагают, что FreeCFBTKimiAPI запущен локально:
 
 ```bash
-cd /path/to/FreeCFBTKimiAPI
+cd /path/to/FreeKimiAPI
 cp .env.example .env
 npm start
 ```
@@ -11,13 +11,13 @@ npm start
 Base URLs:
 
 ```text
-Server root: http://127.0.0.1:3271
-OpenAI base: http://127.0.0.1:3271/v1
+Корень сервера: http://127.0.0.1:3271
+OpenAI base:    http://127.0.0.1:3271/v1
 ```
 
 ## Claude Code
 
-Claude Code talks Anthropic Messages. Point it at the server root, not `/v1`:
+Claude Code работает через Anthropic Messages. Указывай корень сервера, а не `/v1`:
 
 ```bash
 ANTHROPIC_BASE_URL=http://127.0.0.1:3271 \
@@ -28,13 +28,13 @@ claude --bare --print --model cfbt-kimi \
   'Create file /tmp/cfbt_claude_real.txt containing exactly CFBT_CLAUDE_REAL, then say DONE.'
 ```
 
-Expected: Claude Code executes a tool and creates the file.
+Ожидаемый результат: Claude Code выполнит tool и создаст файл.
 
 ## Hermes Agent
 
-Use an isolated Hermes profile for testing so the user's default config is not mutated.
+Для тестов лучше использовать изолированный Hermes profile, чтобы не менять пользовательский default config.
 
-Example profile config:
+Пример config для profile:
 
 ```yaml
 model:
@@ -50,11 +50,11 @@ custom_providers:
         context_length: 200000
 ```
 
-Example run:
+Пример запуска:
 
 ```bash
 hermes profile create cfbt-kimi-smoke || true
-# write config to ~/.hermes/profiles/cfbt-kimi-smoke/config.yaml
+# запиши config в ~/.hermes/profiles/cfbt-kimi-smoke/config.yaml
 hermes -p cfbt-kimi-smoke chat -Q --yolo \
   --provider custom:cfbt-kimi \
   --model cfbt-kimi \
@@ -62,11 +62,11 @@ hermes -p cfbt-kimi-smoke chat -Q --yolo \
   -q 'Create file /tmp/cfbt_hermes_real.txt containing exactly CFBT_HERMES_REAL, then answer DONE.'
 ```
 
-Expected: Hermes executes a local tool and creates the file.
+Ожидаемый результат: Hermes выполнит локальный tool и создаст файл.
 
 ## OpenCode
 
-Use ephemeral OpenCode config:
+Используй временный OpenCode config:
 
 ```bash
 export OPENCODE_CONFIG_CONTENT='{
@@ -94,13 +94,13 @@ opencode run --pure --format json \
   'Create file /tmp/cfbt_opencode_real.txt containing exactly CFBT_OPENCODE_REAL, then say DONE.'
 ```
 
-On macOS, do not rely on GNU `timeout`; it may not be installed.
+На macOS не рассчитывай на GNU `timeout`: он может быть не установлен.
 
 ## Codex CLI
 
-Codex requires OpenAI Responses wire for this setup.
+Для этой схемы Codex требует OpenAI Responses wire.
 
-Use isolated `CODEX_HOME`:
+Используй изолированный `CODEX_HOME`:
 
 ```bash
 mkdir -p /tmp/codex-cfbt-home
@@ -126,27 +126,27 @@ CODEX_HOME=/tmp/codex-cfbt-home codex exec \
   'Create file /tmp/cfbt_codex_real.txt containing exactly CFBT_CODEX_REAL, then say DONE.'
 ```
 
-Success requires both:
+Для успеха нужны оба события:
 
 - `command_execution` item completed;
-- final `turn.completed`.
+- финальный `turn.completed`.
 
-If Codex executes the command but fails with `stream disconnected before response.completed`, the Responses streaming post-tool continuation is broken.
+Если Codex выполнил команду, но упал с `stream disconnected before response.completed`, значит сломано streaming-продолжение после tool call в Responses API.
 
 ## OpenClaw
 
-Known partial state:
+Известное частичное состояние:
 
-- `openclaw models list` can see a custom `openai/cfbt-kimi` model when configured through `models.json`.
-- `openclaw agent --local` may still report `Unknown model: openai/cfbt-kimi` because its runtime/session registry does not align with the profile model catalog.
+- `openclaw models list` видит custom-модель `openai/cfbt-kimi`, если она настроена через `models.json`.
+- `openclaw agent --local` всё ещё может выдавать `Unknown model: openai/cfbt-kimi`, потому что runtime/session registry не совпадает с profile model catalog.
 
-Model catalog location:
+Путь к model catalog:
 
 ```text
 ~/.openclaw-<profile>/agents/main/agent/models.json
 ```
 
-Example catalog:
+Пример catalog:
 
 ```json
 {
@@ -170,23 +170,23 @@ Example catalog:
 }
 ```
 
-Set primary model:
+Задать primary model:
 
 ```bash
 openclaw --profile cfbt-kimi config set agents.defaults.model.primary openai/cfbt-kimi
 ```
 
-Treat OpenClaw as pending until a clean `agent --local` run creates a sentinel file.
+Считай OpenClaw pending, пока чистый запуск `agent --local` не создаст sentinel-файл.
 
-## Built-in E2E script
+## Встроенный E2E-скрипт
 
-Run all installed clients:
+Запуск всех установленных клиентов:
 
 ```bash
 npm run e2e
 ```
 
-Current verified output on this machine:
+Текущий проверенный вывод на этой машине:
 
 ```text
 claude-code: pass

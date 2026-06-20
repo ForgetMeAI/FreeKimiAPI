@@ -1,8 +1,8 @@
-# Verification report
+# Отчёт о проверке
 
-Date: 2026-06-20
+Дата: 2026-06-20
 
-Local server:
+Локальный сервер:
 
 ```text
 http://127.0.0.1:3271
@@ -11,7 +11,7 @@ http://127.0.0.1:3271/v1
 
 ## Health
 
-`GET /api/status` returned:
+`GET /api/status` вернул:
 
 ```json
 {
@@ -30,13 +30,13 @@ http://127.0.0.1:3271/v1
 
 ## Endpoint matrix
 
-Command:
+Команда:
 
 ```bash
 npm test
 ```
 
-Result:
+Результат:
 
 ```text
 ok
@@ -52,29 +52,29 @@ ok
 }
 ```
 
-Verified surfaces:
+Проверенные поверхности:
 
 - `/v1/models`
 - `/v1/chat/completions`
-- OpenAI tool loop and tool-result continuation
+- OpenAI tool loop и продолжение после tool result
 - `/v1/messages` Anthropic Messages shim
 - `/v1/responses` OpenAI Responses shim
 
 ## Agent E2E matrix
 
-Command:
+Команда:
 
 ```bash
 npm run e2e
 ```
 
-Report directory:
+Директория отчёта:
 
 ```text
 /Users/forgetme/projects/FreeCFBTKimiAPI/reports/agent-e2e-20260620-004808
 ```
 
-Result:
+Результат:
 
 ```jsonl
 {"client":"claude-code","status":"pass","file":"/tmp/cfbt_claude_real.txt","note":"created sentinel"}
@@ -84,17 +84,17 @@ Result:
 {"client":"openclaw","status":"pending","file":"","note":"installed; model catalog config works, local agent runtime may still report Unknown model without profile/gateway registry alignment"}
 ```
 
-## Interpretation
+## Интерпретация
 
-FreeCFBTKimiAPI is verified for:
+FreeCFBTKimiAPI проверен для:
 
-- Claude Code via Anthropic Messages;
-- Hermes via OpenAI-compatible Chat Completions;
-- OpenCode via OpenAI-compatible Chat Completions;
-- Codex via OpenAI Responses.
+- Claude Code через Anthropic Messages;
+- Hermes через OpenAI-compatible Chat Completions;
+- OpenCode через OpenAI-compatible Chat Completions;
+- Codex через OpenAI Responses.
 
-OpenClaw is documented but not claimed as fully passing. Its model catalog can see the custom model, but local agent runtime still needs profile/gateway registry alignment.
+OpenClaw задокументирован, но не заявлен как полностью passing. Его model catalog видит custom-модель, но local agent runtime всё ещё требует alignment profile/gateway registry.
 
-## Public caveat
+## Публичный caveat
 
-This project is a local proxy to a remote third-party/keyless upstream. It is not an official Kimi API, not a local model, and not a guaranteed production service.
+Этот проект — локальный proxy к удалённому third-party/keyless upstream. Это не официальный Kimi API, не локальная модель и не гарантированный production-сервис.
