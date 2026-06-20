@@ -1,7 +1,7 @@
 import http from 'node:http';
 import { config } from './config.js';
 import { upstreamChat, normalizeModel, upstreamModels, upstreamRuntimeStatus } from './upstream.js';
-import { buildToolCall, maybeFinalAfterTool, parseToolCall, shouldForceSimpleTool, toolPrompt } from './tool_sim.js';
+import { buildToolCall, hasToolResult, maybeFinalAfterTool, parseToolCall, shouldForceSimpleTool, toolPrompt } from './tool_sim.js';
 
 const log = (...args) => { if (process.env.CFBT_LOG_REQUESTS === '1') console.log(...args); };
 
@@ -68,6 +68,11 @@ async function callUpstreamChat(body, tools) {
   const sys = toolPrompt(tools);
   const messages = sys ? [{ role: 'system', content: sys }, ...(body.messages || [])] : (body.messages || []);
   const upstreamBody = { ...body, model: normalizeModel(body.model), messages, stream: false };
+  if (!Array.isArray(tools) || tools.length === 0) {
+    delete upstreamBody.tools;
+    delete upstreamBody.functions;
+    delete upstreamBody.tool_choice;
+  }
   const up = await upstreamChat(upstreamBody, { stream: false });
   const text = await up.text();
   let data;
@@ -91,7 +96,8 @@ async function handleChat(req, res, body) {
     return json(res, 200, chatCompletion({ model: body.model || 'cfbt-kimi', toolCalls: [call], finish: 'tool_calls' }));
   }
 
-  const result = await callUpstreamChat(body, tools);
+  const allowToolCalls = !hasToolResult(body.messages || []);
+  const result = await callUpstreamChat(body, allowToolCalls ? tools : []);
   if (result.error) {
     if (body.stream) { openSse(res); sse(res, result.error); sse(res, '[DONE]'); return res.end(); }
     return json(res, result.status, result.error);
@@ -99,7 +105,7 @@ async function handleChat(req, res, body) {
   const data = result.data;
   const choice = data.choices?.[0];
   const raw = contentFromChoice(choice);
-  const parsed = parseToolCall(raw, tools);
+  const parsed = allowToolCalls ? parseToolCall(raw, tools) : null;
   if (parsed && body.tool_choice !== 'none') {
     const call = buildToolCall(parsed);
     if (body.stream) return emitChatSse(res, { model: body.model || 'cfbt-kimi', toolCall: call, finish: 'tool_calls', id: data.id });

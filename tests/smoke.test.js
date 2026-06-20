@@ -123,6 +123,109 @@ try {
   assert.match(scriptArgs.command, /cat > 'kimi-test\.py'/);
   assert.match(scriptArgs.command, /python3 'kimi-test\.py'/);
   assert.match(scriptArgs.command, /rm -f 'kimi-test\.py'/);
+
+  const webSearchTool = {
+    type: 'function',
+    function: {
+      name: 'web_search',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string' },
+          limit: { type: 'integer' },
+        },
+        required: ['query'],
+      },
+    },
+  };
+  r = await fetch(base + '/chat/completions', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      model: 'cfbt-kimi',
+      messages: [
+        { role: 'user', content: 'найди в интернете информацию о модели glm-5.2' },
+        { role: 'assistant', content: 'I should use web_search.' },
+        { role: 'user', content: 'делай' },
+      ],
+      tools: [webSearchTool, {
+        type: 'function',
+        function: {
+          name: 'web_extract',
+          parameters: { type: 'object', properties: { urls: { type: 'array', items: { type: 'string' } } }, required: ['urls'] },
+        },
+      }],
+      tool_choice: 'auto',
+    }),
+  });
+  const searchTool = await r.json();
+  assert.equal(searchTool.choices[0].finish_reason, 'tool_calls');
+  const searchCall = searchTool.choices[0].message.tool_calls[0];
+  assert.equal(searchCall.function.name, 'web_search');
+  const searchArgs = JSON.parse(searchCall.function.arguments);
+  assert.match(searchArgs.query, /glm-5\.2/i);
+
+  r = await fetch(base + '/chat/completions', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      model: 'cfbt-kimi',
+      messages: [
+        { role: 'user', content: 'найди в интернете информацию о модели glm-5.2' },
+        { role: 'assistant', content: null, tool_calls: [searchCall] },
+        { role: 'tool', tool_call_id: searchCall.id, content: JSON.stringify({ data: { web: [{ url: 'https://docs.z.ai/guides/llm/glm-4.5', title: 'Z.ai docs' }, { url: 'https://wavespeed.ai/models/z-ai-glm-4.5v', title: 'WaveSpeedAI' }] } }) },
+        { role: 'assistant', content: 'Надо извлечь контент из найденных источников.' },
+        { role: 'user', content: 'делай' },
+      ],
+      tools: [
+        {
+          type: 'function',
+          function: {
+            name: 'web_extract',
+            parameters: {
+              type: 'object',
+              properties: { urls: { type: 'array', items: { type: 'string' } } },
+              required: ['urls'],
+            },
+          },
+        },
+      ],
+      tool_choice: 'auto',
+    }),
+  });
+  const extractTool = await r.json();
+  assert.equal(extractTool.choices[0].finish_reason, 'tool_calls');
+  const extractCall = extractTool.choices[0].message.tool_calls[0];
+  assert.equal(extractCall.function.name, 'web_extract');
+  const extractArgs = JSON.parse(extractCall.function.arguments);
+  assert.deepEqual(extractArgs.urls, ['https://docs.z.ai/guides/llm/glm-4.5', 'https://wavespeed.ai/models/z-ai-glm-4.5v']);
+
+  r = await fetch(base + '/chat/completions', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      model: 'cfbt-kimi',
+      messages: [
+        { role: 'user', content: 'найди в интернете информацию о модели glm-5.2' },
+        { role: 'assistant', content: null, tool_calls: [searchCall] },
+        { role: 'tool', tool_call_id: searchCall.id, content: JSON.stringify({ data: { web: [{ url: 'https://docs.z.ai/guides/llm/glm-4.5', title: 'Z.ai docs' }] } }) },
+        { role: 'assistant', content: null, tool_calls: [extractCall] },
+        { role: 'tool', tool_call_id: extractCall.id, content: 'Extracted page content about GLM.' },
+        { role: 'user', content: 'делай' },
+      ],
+      tools: [webSearchTool, {
+        type: 'function',
+        function: {
+          name: 'web_extract',
+          parameters: { type: 'object', properties: { urls: { type: 'array', items: { type: 'string' } } }, required: ['urls'] },
+        },
+      }],
+      tool_choice: 'auto',
+      max_tokens: 64,
+    }),
+  });
+  const afterExtract = await r.json();
+  assert.notEqual(afterExtract.choices[0].finish_reason, 'tool_calls');
   console.log('ok');
 } finally {
   child.kill('SIGTERM');

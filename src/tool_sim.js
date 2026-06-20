@@ -27,6 +27,25 @@ export function allUserText(messages) {
     .join('\n');
 }
 
+function allMessageText(messages) {
+  return (messages || [])
+    .map((m) => stringifyContent(m?.content ?? m))
+    .join('\n');
+}
+
+function allToolText(messages) {
+  return (messages || [])
+    .filter((m) => m?.role === 'tool' || m?.type === 'tool_result' || m?.tool_call_id)
+    .map((m) => stringifyContent(m?.content ?? m))
+    .join('\n');
+}
+
+function hasAssistantToolCall(messages, pattern) {
+  return (messages || []).some((m) =>
+    (m?.tool_calls || []).some((tc) => pattern.test(tc?.function?.name || tc?.name || ''))
+  );
+}
+
 export function maybeFinalAfterTool(messages = []) {
   if (!hasToolResult(messages)) return null;
   const text = allUserText(messages);
@@ -121,6 +140,10 @@ function commandTool(list) {
     || list.find((x) => /command|shell|bash|terminal|exec/i.test(x.name));
 }
 
+function namedTool(list, pattern) {
+  return list.find((x) => pattern.test(x.name));
+}
+
 function shellQuote(s) {
   return `'${String(s).replace(/'/g, `'"'"'`)}'`;
 }
@@ -189,9 +212,80 @@ export function inferFileTool(messages, tools) {
   return null;
 }
 
+function cleanQuery(q) {
+  return String(q || '')
+    .replace(/["“”]/g, '')
+    .replace(/\b(пожалуйста|please|сейчас|now)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/[.,;:!?]+$/, '')
+    .trim();
+}
+
+function extractSearchQuery(text) {
+  const patterns = [
+    /(?:найди|поищи|ищи|найти|поиск(?:ай)?|search(?:\s+for)?|find)\s+(?:в\s+интернете|информаци[юя]|information|web|internet|online)?\s*(?:о|об|про|about|for)?\s+([^\n?!]{2,160})/i,
+    /(?:информаци[юя]|information)\s+(?:о|об|про|about)\s+([^\n?!]{2,160})/i,
+    /(?:модел[ьи]|model)\s+([A-Za-zА-Яа-я0-9_.-]{2,80})/i,
+  ];
+  for (const p of patterns) {
+    const m = text.match(p);
+    const q = cleanQuery(m?.[1]);
+    if (q) return q;
+  }
+  return null;
+}
+
+export function inferSearchTool(messages, tools) {
+  const list = toolList(tools);
+  const search = namedTool(list, /^(web_search|search|internet_search|tavily_search|brave_search)$/i)
+    || namedTool(list, /search/i);
+  if (!search) return null;
+  if (hasAssistantToolCall(messages, /^(web_search|search|internet_search|tavily_search|brave_search)$/i)) return null;
+  const last = lastUserText(messages);
+  const all = allUserText(messages) || last;
+  if (/\b(do\s+not|don't|dont)\b.{0,80}\b(search|use|call)\b|не\s+(?:ищи|делай|используй)/i.test(last)) return null;
+  const wantsSearch = /найди|поищи|ищи|поиск|в\s+интернете|интернет|web[_ -]?search|search\s+(?:the\s+)?web|search\s+for|find\s+(?:information|info)|google/i.test(all);
+  if (!wantsSearch) return null;
+  const query = extractSearchQuery(all) || cleanQuery(all.split('\n').find((line) => /найди|поищи|search|find|интернет/i.test(line)) || all);
+  if (!query) return null;
+  const args = onlyRequiredOrKnown(search.fn, { query, q: query, search_query: query, limit: 5, max_results: 5 });
+  return { name: search.name, arguments: args };
+}
+
+function uniqueUrls(text) {
+  return [...new Set(String(text || '').match(/https?:\/\/[^\s\]})"'<>]+/g) || [])]
+    .map((u) => u.replace(/[.,;:]+$/, ''))
+    .filter((u) => !/youtube\.com|youtu\.be/i.test(u))
+    .slice(0, 3);
+}
+
+export function inferExtractTool(messages, tools) {
+  if (!hasToolResult(messages)) return null;
+  const list = toolList(tools);
+  const extract = namedTool(list, /^(web_extract|extract|fetch_url|read_url)$/i)
+    || namedTool(list, /extract/i);
+  if (!extract) return null;
+  if (hasAssistantToolCall(messages, /^(web_extract|extract|fetch_url|read_url)$/i)) return null;
+  const last = lastUserText(messages);
+  const all = allMessageText(messages);
+  const toolText = allToolText(messages);
+  const wantsExtract = /извлеч|прочита|открой|получи\s+контент|extract|fetch|read\s+(?:the\s+)?(?:pages?|urls?)|content/i.test(all)
+    || /^(делай|сделай|продолжай|go|do it)$/i.test(cleanQuery(last));
+  if (!wantsExtract) return null;
+  const urls = uniqueUrls(toolText);
+  if (!urls.length) return null;
+  const args = onlyRequiredOrKnown(extract.fn, { urls, url: urls[0] });
+  return { name: extract.name, arguments: args };
+}
+
 export function shouldForceSimpleTool(messages, tools) {
   if (!Array.isArray(tools) || tools.length === 0) return null;
+  const extractTool = inferExtractTool(messages, tools);
+  if (extractTool) return extractTool;
   if (hasToolResult(messages)) return null;
+  const searchTool = inferSearchTool(messages, tools);
+  if (searchTool) return searchTool;
   const commandTool = inferCommandTool(messages, tools);
   if (commandTool) return commandTool;
   const fileTool = inferFileTool(messages, tools);
